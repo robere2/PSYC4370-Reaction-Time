@@ -16,7 +16,7 @@
                 function beginRound(experiment) {
                     console.log('Starting ' + experiment)
                     if(experiment === "simple") {
-                        let delay = getRandom(1000, 8000)
+                        let delay = getRandom(1000, 6000)
                         console.log("Delay: " + delay);
                         rounds.push({
                             start: null, end: null, pushedTooSoon: false
@@ -28,7 +28,7 @@
                         }, delay);
                     } else if(experiment === "direction") {
                         let showLeft = getRandom(1, 10) >= 5;
-                        let delay = getRandom(1000, 8000)
+                        let delay = getRandom(1000, 6000)
                         console.log("Delay: " + delay);
                         rounds.push({
                             start: null, end: null, pushedTooSoon: false, isLeft: showLeft, pushedLeft: null
@@ -41,7 +41,7 @@
                     } else if(experiment === "complex") {
                         let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                         let character = characters[Math.floor(getRandom(0, 25.9999999))];
-                        let delay = getRandom(1000, 8000)
+                        let delay = getRandom(1000, 6000)
                         console.log("Delay: " + delay);
                         rounds.push({
                             start: null, end: null, pushedTooSoon: false, char: character, pushedChar: null
@@ -66,6 +66,8 @@
                 let experiment;
                 let started = false;
                 $(".selector").on('click', (elem) => {
+                    maxRounds = parseInt($("#iteration-counter").val());
+                    console.log("Mode selected. Round count: " + maxRounds);
                     $("#selection").css("display", "none");
                     experiment = $(elem.target).attr('data-type');
                     $("#" + experiment).css("display", "initial");
@@ -143,6 +145,7 @@
                             avgReactionTime = avgReactionTime / roundsTimed;
                             $("#results-data").append(html);
                             $("#reaction-avg").text(avgReactionTime + " ms");
+                            $("#results-json").val(JSON.stringify(rounds));
 
                             if(experiment === "simple") {
                                 $("#accuracy-avg").text("N/A");
@@ -163,7 +166,7 @@
         body * {
             color: white;
         }
-        button {
+        button, input {
             color: black;
         }
         .play-area {
@@ -205,6 +208,15 @@
             width: 200px;
             text-align: left;
         }
+
+        textarea {
+            background-color: #333;
+        }
+
+        #results-json {
+            width: 500px;
+            height: 300px;
+        }
     </style>
     <body>
         <div id="selection">
@@ -212,6 +224,10 @@
             <button id="select-simple" class="selector" data-type="simple">Simple</button>
             <button id="select-direction" class="selector" data-type="direction">Direction Selection</button>
             <button id="select-complex" class="selector" data-type="complex">Character Selection</button>
+            <br>
+            <br>
+            <label for="iteration-counter">Test count:</label>
+            <input type="number" id="iteration-counter" value="20">
         </div>
 
         <div id="simple" class="experiment">
@@ -268,6 +284,8 @@
             </table>
             <p>Average reaction time: <span id="reaction-avg"></span></p>
             <p>Average Accuracy: <span id="accuracy-avg"></span></p>
+            <p>Raw output:</p>
+            <textarea id="results-json"></textarea>
         </div>
     </body>
 </html>
