@@ -1,10 +1,273 @@
 <html>
     <head>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script>
 
+            function getRandom(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            $(document).ready(() => {
+
+                let rounds = [];
+                let maxRounds = 20;
+                let timeout;
+
+                function beginRound(experiment) {
+                    console.log('Starting ' + experiment)
+                    if(experiment === "simple") {
+                        let delay = getRandom(1000, 8000)
+                        console.log("Delay: " + delay);
+                        rounds.push({
+                            start: null, end: null, pushedTooSoon: false
+                        })
+                        timeout = setTimeout(() => {
+                            rounds[rounds.length - 1].start = Date.now();
+                            console.log('Showing cube')
+                            $(".cube").css("opacity", 1);
+                        }, delay);
+                    } else if(experiment === "direction") {
+                        let showLeft = getRandom(1, 10) >= 5;
+                        let delay = getRandom(1000, 8000)
+                        console.log("Delay: " + delay);
+                        rounds.push({
+                            start: null, end: null, pushedTooSoon: false, isLeft: showLeft, pushedLeft: null
+                        })
+                        timeout = setTimeout(() => {
+                            rounds[rounds.length - 1].start = Date.now();
+                            console.log('Showing cube')
+                            $(".cube" + (showLeft ? ".left" : ".right")).css("opacity", 1);
+                        }, delay);
+                    } else if(experiment === "complex") {
+                        let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                        let character = characters[Math.floor(getRandom(0, 25.9999999))];
+                        let delay = getRandom(1000, 8000)
+                        console.log("Delay: " + delay);
+                        rounds.push({
+                            start: null, end: null, pushedTooSoon: false, char: character, pushedChar: null
+                        })
+                        timeout = setTimeout(() => {
+                            rounds[rounds.length - 1].start = Date.now();
+                            console.log('Showing character ' + character)
+                            $(".char").text(character);
+                            $(".char").css("opacity", 1);
+                        }, delay);
+                    }
+                }
+
+                function startExperiment(experiment) {
+                    $(".start").css("opacity", 0);
+                    $(".help-text").css("opacity", 0);
+                    $(".oops").css("display", "none");
+
+                    beginRound(experiment);
+                }               
+
+                let experiment;
+                let started = false;
+                $(".selector").on('click', (elem) => {
+                    $("#selection").css("display", "none");
+                    experiment = $(elem.target).attr('data-type');
+                    $("#" + experiment).css("display", "initial");
+                })
+
+                let resultsShown = false;
+                $(document).keydown((e) => {
+                    console.log(e);
+                    if(experiment && !started) { // Start experiment once experiment is chosen and any key is pressed.
+                        started = true;
+                        startExperiment(experiment);   
+                    } else if(started) {
+                        if(experiment == "direction" && e.keyCode != 37 && e.keyCode != 39) { // Left and right arrow keys are the only valid keys in direction tests
+                            return;
+                        }
+
+                        if(rounds.length < maxRounds) { // If there are more rounds
+                            if(rounds[rounds.length - 1].start == null) { // If the user pressed the button too soon
+                                rounds[rounds.length - 1].pushedTooSoon = true;
+                                started = false;
+                                clearTimeout(timeout);
+                                $(".oops").css("display", "initial");
+                                $(".start").css("opacity", 1);
+                            } else if(rounds[rounds.length - 1].end == null) { // They didn't press the button too soon, store the time and start new round.
+                                rounds[rounds.length - 1].end = Date.now();
+                                if(experiment == "direction") { // Direction test also logs which key was pressed
+                                    rounds[rounds.length - 1].pushedLeft = e.keyCode == 37;
+                                } else if(experiment == "complex") { // Character test also logs which key was pressed
+                                    rounds[rounds.length - 1].pushedChar = e.key
+                                }
+                                $(".cube").css("opacity", 0);
+                                $(".char").css("opacity", 0);
+                                beginRound(experiment);
+                            }
+                        } else if(!resultsShown) {
+                            rounds[rounds.length - 1].end = Date.now();
+                            if(experiment == "direction") { // Direction test also logs which key was pressed
+                                rounds[rounds.length - 1].pushedLeft = e.originalEvent.keyCode == 37;
+                            } else if(experiment == "complex") { // Character test also logs which key was pressed
+                                rounds[rounds.length - 1].pushedChar = e.key
+                            }
+                            $(".cube").css("opacity", 0);
+                            $(".char").css("opacity", 0);
+
+                            console.log(rounds);
+                            $("#" + experiment).css("display", "");
+                            $("#results").css("display", "initial");
+
+                            let html = "";
+                            let avgReactionTime = 0;
+                            let roundsTimed = 0;
+                            let roundsAccurate = 0;
+                            for(let i = 0; i < rounds.length; i++) {
+                                if(rounds[i].pushedTooSoon) {
+                                    html += "<tr><td>FAULTY PRESS</td><td>N/A</td></tr>";
+                                } else if(rounds[i].start && rounds[i].end) {
+                                    roundsTimed++;
+                                    let reactionTime = (rounds[i].end - rounds[i].start);
+                                    if(experiment === "simple") {
+                                        html += "<tr><td>" + reactionTime + " ms</td><td>N/A</td></tr>";
+                                    } else if(experiment === "direction") {
+                                        html += "<tr><td>" + reactionTime + " ms</td><td>" + (rounds[i].isLeft === rounds[i].pushedLeft ? "Yes" : "No") + "</td></tr>";
+                                        if(rounds[i].isLeft === rounds[i].pushedLeft) {
+                                            roundsAccurate++;
+                                        }
+                                    } else {
+                                        html += "<tr><td>" + reactionTime + " ms</td><td>" + (rounds[i].char === rounds[i].pushedChar.toUpperCase() ? "Yes" : "No") + "</td></tr>";
+                                        if(rounds[i].char === rounds[i].pushedChar.toUpperCase()) {
+                                            roundsAccurate++;
+                                        }
+                                    }
+                                    avgReactionTime += reactionTime;
+                                }
+                            }
+                            avgReactionTime = avgReactionTime / roundsTimed;
+                            $("#results-data").append(html);
+                            $("#reaction-avg").text(avgReactionTime + " ms");
+
+                            if(experiment === "simple") {
+                                $("#accuracy-avg").text("N/A");
+                            } else {
+                                $("#accuracy-avg").text(roundsAccurate / roundsTimed);
+                            }
+                            resultsShown = true;
+                        }
+                    }
+                })
+            });
+        </script>
     </head>
+    <style>
+        body {
+            background-color: black;
+        }
+        body * {
+            color: white;
+        }
+        button {
+            color: black;
+        }
+        .play-area {
+            text-align: center;
+            width: 100%;
+            margin-top: 25%;
+        }
+        .cube {
+            height: 10%;
+            width: 10%;
+            background-color: white;
+            opacity: 0;
+            display: inline-block;
+            font-size: 50px;
+        }
+
+        .char {
+            height: 10%;
+            width: 10%;
+            opacity: 0;
+            display: inline-block;
+            font-size: 72px;
+        }
+
+        .cube.left {
+            margin-right: 1000px;
+        }
+
+        .oops, .complete, #results, .experiment {
+            display: none;
+        }
+
+        #results {
+            margin-left: 50%;
+            transform: translateX(-50%);
+        }
+
+        th {
+            width: 200px;
+            text-align: left;
+        }
+    </style>
     <body>
-        <div>
+        <div id="selection">
+            <h1>Select Experiment Type</h1>
+            <button id="select-simple" class="selector" data-type="simple">Simple</button>
+            <button id="select-direction" class="selector" data-type="direction">Direction Selection</button>
+            <button id="select-complex" class="selector" data-type="complex">Character Selection</button>
+        </div>
+
+        <div id="simple" class="experiment">
+            <div class="help-text">
+                <h1>Simple</h1>
+                <p>As quickly as possible, press any key when you see a square in the middle of your screen.</p>
+            </div>
+
+            <div class="play-area">
+                <p class='oops'>You pushed a key too soon. Don't push any keys until you're supposed to. This round was skipped.</p>
+                <h2 class="start">Press any key to start.</h3>
+                <div class="cube"></div>
+            </div>
+        </div>
+
+        <div id="direction" class="experiment">
+            <div class="help-text">
+                <h1>Direction</h1>
+                <p>As quickly as possible, press the left arrow key when a square appears on the left side of your screen. Press the right arrow key when a square appears on the right side of your screen.</p>
+            </div>
+
+            <div class="play-area">
+                <p class='oops'>You pushed a key too soon. Don't push any keys until you're supposed to. This round was skipped.</p>
+                <h2 class="start">Press any key to start.</h3>
+                    <div class="cube left"></div>
+                    <div class="cube right"></div>
+            </div>
+        </div>
+        
+        <div id="complex" class="experiment">
+            <div class="help-text">
+                <h1>Characters</h1>
+                <p>As quickly as possible, press the key corresponding to the letter that appears on your screen.</p>
+            </div>
             
+            <div class="play-area">
+                <p class='oops'>You pushed a key too soon. Don't push any keys until you're supposed to. This round was skipped.</p>
+                <h2 class="start">Press any key to start.</h3>
+                <div class="char"></div>
+            </div>
+        </div>
+
+        <div id="results">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time taken</th>
+                        <th>Correct button pressed</th>
+                    </tr>
+                </thead>
+                <tbody id="results-data">
+
+                </tbody>
+            </table>
+            <p>Average reaction time: <span id="reaction-avg"></span></p>
+            <p>Average Accuracy: <span id="accuracy-avg"></span></p>
         </div>
     </body>
 </html>
